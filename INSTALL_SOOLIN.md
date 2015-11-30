@@ -153,8 +153,16 @@ make -j4
 
 ##MadAnalysis (analysis)
 
+**IMPORTANT**: to compile the Delphes addition, you must use
+```
+export SCRAM_ARCH=slc6_amd64_gcc472
+```
+and use `CMSSW_6_2_12`. To be fixed?!
+
 Download tar. You should be able to run it out of the box:
 
 ```
-
+./bin/ma5
 ```
+
+Make sure to run setup.sh each time!

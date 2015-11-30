@@ -1,4 +1,4 @@
-#RUNNING_IRIDIS
+#RUNNING_SOOLIN
 
 Instructions for running the complete chain on Soolin, using the HTCondor batch system.
 
@@ -16,11 +16,11 @@ SM processes are generated with MadGraph5_aMC@NLO, whilst SUSY processes are gen
 
 ###Standard Model: MG5_aMC@NLO
 
-**TODO**
+Use the script [run_mg5.py](MG5_aMC/run_mg5.py). This is a very simple wrapper - basically auto-creates a new card using a template, and user-specified options about Pythia8 and HepMC install directories.
 
 ####Running batch jobs on HTCondor
 
-**TODO**
+Use the script [submit_mg5_jobs_htcondor.py](MG5_aMC/submit_mg5_jobs_htcondor.py). Show possible option using the `--help` flag. **Important** before submitting jobs, you must have extracted and run MG5_aMC locally. In addition, you must set the variable `MG5_DIR` in [submit_mg5_jobs_htcondor.py](MG5_aMC/submit_mg5_jobs_htcondor.py) to point to your MG5 installation directory.
 
 ###SUSY: Pythia8
 
@@ -67,14 +67,14 @@ Detector simulation is applied using Delphes. We pass it a HepMC file as generat
 For example:
 
 ```
-./DelphesHEPMC
+./DelphesHEPMC <card file> <output ROOT filename> <input file(s) in LHE, HepMC format>
 ```
 
 **TODO**
 
 ###Running batch jobs on HTCondor
 
-**TODO**
+Use the script [submit_delphes_jobs_htcondor.py](Delphes/submit_delphes_jobs_htcondor.py).
 
 ##Analysis
 

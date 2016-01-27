@@ -1,3 +1,5 @@
+# for local running, only use single core to be kind!
+set nb_core 1
 set automatic_html_opening False
 set pythia8_path /users/$LOGNAME/Pythia8/pythia8212
 generate p p > b b~ [QCD]

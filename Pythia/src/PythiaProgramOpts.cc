@@ -25,7 +25,7 @@ PythiaProgramOpts::PythiaProgramOpts(int argc, char* argv[]):
   filenameROOT_(""),
   printEvent_(false),
   verbose_(false),
-  zip_(true),
+  zip_(false),
   desc_("\nProduces MC for p-p collisions.\n"
     "User must specify the physics process(es) to be generated \nvia an input"
     " card (see input_cards directory for examples).\nDefaults for beams, "

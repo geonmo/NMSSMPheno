@@ -6,11 +6,13 @@ Script to submit a batch of Delphes jobs on HTCondor
 
 import argparse
 import sys
+sys.path.append('../Common')
+import common
 import os
 import logging
 from time import strftime
-from subprocess import call
-from itertools import izip_longest
+from subprocess import check_call
+import htcondenser as ht
 
 
 logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
@@ -20,10 +22,26 @@ log = logging.getLogger(__name__)
 # Set the local Delphes installation directory here
 DELPHES_DIR = '/users/%s/delphes' % os.environ['LOGNAME']
 
+# Set directory for STDOUT/STDERR/LOG from jobs
+LOG_DIR = '/storage/%s/NMSSMPheno/delphes' % os.environ['LOGNAME']
 
-def submit_delphes_jobs_htcondor(in_args=sys.argv[1:], delphes_dir=DELPHES_DIR):
-    """
-    Main function.
+
+def submit_delphes_jobs_htcondor(in_args=sys.argv[1:], delphes_dir=DELPHES_DIR, log_dir=LOG_DIR):
+    """Main function to submit jobs.
+
+    Parameters
+    ----------
+    in_args : dict
+        Arguments to parse
+    delphes_dir : str, optional
+        Directory with location of DelphesLHEF installation
+    log_dir : str, optional
+        Directory for STDOUT/STDERR/HTCondor logs.
+
+    Raises
+    ------
+    OSError
+        Description
     """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--card',
@@ -33,12 +51,13 @@ def submit_delphes_jobs_htcondor(in_args=sys.argv[1:], delphes_dir=DELPHES_DIR):
                         required=True,
                         help='Input directory of hepmc/lhe files to process')
     parser.add_argument('--type',
+                        required=True,
                         choices=['hepmc', 'lhe'],
                         help='Filetype to process')
     parser.add_argument('--oDir',
                         help='Output directory for ROOT files. If one is not '
                         'specified, one will be created automatically at '
-                        '<iDir>/../delphes/<card>')
+                        '<iDir>/../<card>_<type>')
     # Some generic script options
     parser.add_argument("--dry",
                         help="Dry run, don't submit to queue.",
@@ -55,209 +74,206 @@ def submit_delphes_jobs_htcondor(in_args=sys.argv[1:], delphes_dir=DELPHES_DIR):
 
     log.debug('program args: %s' % args)
 
-    # Do some checks
-    # -------------------------------------------------------------------------
-    if not os.path.isdir(delphes_dir):
-        raise RuntimeError('DELPHES_DIR does not correspond to an actual directory')
-    if not os.path.isdir(args.iDir):
-        raise RuntimeError('--iDir arg does not correspond to an actual directory')
-    if not os.path.isfile(args.card):
-        raise RuntimeError('Cannot find input card')
-    if os.path.dirname(args.card) != 'input_cards':
-        raise RuntimeError('Put your card in input_cards directory')
-
     # Avoid issues with os.path.dirname as we want parent directory, not itself
     if args.iDir.endswith('/'):
         args.iDir = args.iDir.rstrip('/')
     if delphes_dir.endswith('/'):
         delphes_dir = delphes_dir.rstrip('/')
 
+    # Do some checks
+    check_args(args, delphes_dir)
+
     # Auto-generate output dir if not specified
-    # -------------------------------------------------------------------------
     if not args.oDir:
-        args.oDir = generate_output_dir(args.iDir, os.path.basename(args.card))
-    check_create_dir(args.oDir, args.v)
-
-    # Setup log directory
-    # -------------------------------------------------------------------------
-    log_dir = '%s/logs' % (generate_subdir(args.card))
-    check_create_dir(log_dir, args.v)
-
-    # File stem common for all dag and status files
-    # -------------------------------------------------------------------------
-    file_stem = os.path.join(generate_subdir(args.card), strftime("%H%M%S"))
-    check_create_dir(os.path.dirname(file_stem), args.v)
-
-    # Dicts to hold thing to be copied before/after the job runs
-    copy_to_local = {}
-    copy_from_local = {}
+        args.oDir = generate_output_dir(args.iDir, os.path.basename(args.card), args.type)
 
     # Zip up Delphes installation and move it to hdfs
-    # -------------------------------------------------------------------------
-    log.info('Creating tar file of Delphes installation, please wait...')
-    call(['tar', 'czf', 'delphes.tgz', '-C', os.path.dirname(delphes_dir), os.path.basename(delphes_dir)])
-    zip_dir = '/hdfs/user/%s/NMSSMPheno/zips' % (os.environ['LOGNAME'])
-    check_create_dir(zip_dir, args.v)
-    zip_filename = 'delphes.tgz'
-    zip_path = os.path.join(zip_dir, zip_filename)
-    call(['hadoop', 'fs', '-copyFromLocal', '-f', zip_filename, zip_dir.replace('/hdfs', '')])
-    os.remove(zip_filename)
-    copy_to_local[zip_path] = zip_filename
-
-    # Copy across card to hdfs
-    # -------------------------------------------------------------------------
-    if not args.dry:
-        log.debug('Copying across input_cards...')
-        call(['hadoop', 'fs', '-copyFromLocal', '-f',
-              'input_cards', args.oDir.replace('/hdfs', '')])
-    copy_to_local[os.path.join(args.oDir, 'input_cards')] = 'input_cards'
+    delphes_zip = 'delphes.tgz'
+    create_delphes_zip(delphes_dir, delphes_zip)
 
     # Write DAG file
-    # -------------------------------------------------------------------------
-    dag_name = file_stem + '.dag'
-    status_name = file_stem + '.status'
-
-    write_dag_file(dag_filename=dag_name,
-                   condor_filename='HTCondor/runDelphes.condor',
-                   status_filename=status_name,
-                   copyToLocal=copy_to_local, copyFromLocal=copy_from_local,
-                   log_dir=log_dir, args=args)
+    log_dir = os.path.join(log_dir, generate_subdir(args.card))
+    file_stem = os.path.basename(os.path.splitext(args.card)[0]) + '_' + strftime("%H%M%S")
+    delphes_dag = create_dag(dag_filename=file_stem + '.dag',
+                             status_filename=file_stem + '.status',
+                             condor_filename='HTCondor/runDelphes.condor',
+                             log_dir=log_dir,
+                             delphes_zip=delphes_zip,
+                             args=args)
 
     # Submit it
-    # -------------------------------------------------------------------------
     if args.dry:
         log.warning('Dry run - not submitting jobs or copying files.')
+        delphes_dag.write()
+        print delphes_dag.get_jobsets()[0].common_input_file_mirrors
     else:
-        call(['condor_submit_dag', dag_name])
-        log.info('Check status with:')
-        log.info('DAGstatus.py %s' % status_name)
-        log.info('Condor log files written to: %s' % log_dir)
-        print''
+        delphes_dag.submit()
+    return 0
 
 
-def write_dag_file(dag_filename, condor_filename, status_filename, log_dir,
-                   copyToLocal, copyFromLocal, args):
-    """Write a DAG file for a set of jobs
+def check_args(args, delphes_dir):
+    """Check user arguments.
 
-    Creates a DAG file, setting correct args for worker node script.
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Description
+    delphes_dir : str
+        Description
+
+    Raises
+    ------
+    OSError
+        If delphes_dir is not a directory.
+        If input directory not a directory.
+        If Card cannot be found.
+        If Card not in input_cards.
+    """
+    if not os.path.isdir(delphes_dir):
+        raise OSError('DELPHES_DIR does not correspond to an actual directory')
+    if not os.path.isdir(args.iDir):
+        raise OSError('--iDir arg does not correspond to an actual directory')
+    if not os.path.isfile(args.card):
+        raise OSError('Cannot find input card')
+    if os.path.dirname(args.card) != 'input_cards':
+        raise OSError('Put your card in input_cards directory')
+
+
+def create_delphes_zip(delphes_dir, zip_filename='delphes.tgz'):
+    """Create gzip compressed archive of Delphes directory.
+
+    Parameters
+    ----------
+    delphes_dir : str
+        Filepath to Delphes directory
+    zip_filename : str, optional
+        Name of resultant zip file
+    """
+    log.info('Creating tar file of Delphes installation, please wait...')
+    check_call(['tar', 'czf', zip_filename, '-C',
+                os.path.dirname(delphes_dir), os.path.basename(delphes_dir)])
+
+
+def create_dag(dag_filename, status_filename, condor_filename, log_dir, delphes_zip, args):
+    """Create a htcondenser.DAGMan to run Delphes over a set of files.
+
+    Parameters
+    ----------
     dag_filename: str
         Name to be used for DAG job file.
-    condor_filename: str
-        Name of condor job file to be used for each job.
     status_filename: str
         Name to be used for DAG status file.
-    copyToLocal: dict{str : str}
-        Dict of things to copyToLocal when the worker node script starts.
-        Of the form source : destination
-    copyFromLocal: dict{str : str}
-        Dict of things to copyFromLocal when the worker node script ends.
-        Of the form source : destination
+    condor_filename: str
+        Name of condor job file to be used for each job.
+    log_dir : str
+        Name of directory to be used for log files.
+    delphes_zip : str
+        Location of delphes zip file.
     args: argparse.Namespace
         Contains info about output directory, job IDs, number of events per job,
         and args to pass to the executable.
 
+    Returns
+    -------
+    htcondenser.DAGMan
+        DAGMan for all delphes jobs.
+
+    Raises
+    ------
+    OSError
+        If no files in input directory of correct type (lhe, hepmc, gzipped)
+
     """
-    # collate list of input files
+    # Collate list of input files
     def accept_file(filename):
         fl = os.path.basename(filename).lower()
         extensions = ['.lhe', '.hepmc', '.gz', '.tar.gz', '.tgz']
         return any([os.path.isfile(filename) and fl.endswith(ext) for ext in extensions])
 
-    print os.listdir(args.iDir)
-    input_files = [os.path.join(args.iDir, f) for f in os.listdir(args.iDir) if accept_file(os.path.join(args.iDir, f))]
+    log.debug(os.listdir(args.iDir))
+    abs_idir = os.path.abspath(args.iDir)
+    input_files = [os.path.join(abs_idir, f) for f in os.listdir(abs_idir)
+                   if accept_file(os.path.join(abs_idir, f))]
     if not input_files:
-        raise RuntimeError('No acceptable input file in %s' % args.iDir)
+        raise OSError('No acceptable input file in %s' % args.iDir)
 
+    # Setup DAGMan and JobSet objects
+    # ------------------------------------------------------------------------
     log.info("DAG file: %s" % dag_filename)
-    with open(dag_filename, 'w') as dag_file:
-        dag_file.write('# DAG for card %s\n' % args.card)
-        dag_file.write('# Outputting to %s\n' % args.oDir)
+    delphes_dag = ht.DAGMan(filename=dag_filename, status_file=status_filename)
 
-        # we assign each job to run over a certain number of input files.
-        files_per_job = 2
-        for ind, input_files in enumerate(grouper(input_files, files_per_job)):
-            job_name = '%d_%s' % (ind, os.path.basename(args.card))
-            dag_file.write('JOB %s %s\n' % (job_name, condor_filename))
+    delphes_jobset = ht.JobSet(exe='HTCondor/runDelphes.py', copy_exe=True,
+                               setup_script='HTCondor/setupDelphes.sh',
+                               filename='HTCondor/delphes.condor',
+                               out_dir=log_dir, err_dir=log_dir, log_dir=log_dir,
+                               memory='100MB', disk='2GB',
+                               share_exe_setup=True,
+                               common_input_files=[delphes_zip, args.card],
+                               transfer_hdfs_input=True,
+                               hdfs_store=args.oDir)
 
-            # args to pass to the script on the worker node
-            job_opts = ['--card', args.card]
-            if args.type:
-                exe_dict = {'hepmc': './DelphesHepMC', 'lhe': './DelphesLHEF'}
-                job_opts.extend(['--exe', exe_dict[args.type]])
+    exe_dict = {'hepmc': './DelphesHepMC', 'lhe': './DelphesLHEF'}
+    delphes_exe = exe_dict[args.type]
 
-            # Add process commands to job opts
-            # ----------------------------------------------------------------
-            # generate output filenames
-            def stem(filename):
-                # do the splitext twice to get rid of e.g. X.tar.gz
-                return os.path.splitext(os.path.splitext(os.path.basename(filename))[0])[0]
-            output_files = [os.path.join(args.oDir, stem(f)) + '.root' for f in input_files]
-            for in_file, out_file in zip(input_files, output_files):
-                job_opts.extend(['--process', in_file, out_file])
+    # We assign each job to run over a certain number of input files.
+    files_per_job = 2
+    for ind, input_files in enumerate(common.grouper(input_files, files_per_job)):
+        input_files = filter(None, input_files)
 
-            # start with files to copyToLocal at the start of job running
-            # ----------------------------------------------------------------
-            if copyToLocal:
-                for src, dest in copyToLocal.iteritems():
-                    job_opts.extend(['--copyToLocal', src, dest])
+        job_args = ['--card', os.path.basename(args.card), '--exe', delphes_exe]
 
-            # add in any other files that should be copied from the worker at
-            # the end of the job
-            # ----------------------------------------------------------------
-            if copyFromLocal:
-                for src, dest in copyFromLocal.iteritems():
-                    job_opts.extend(['--copyFromLocal', src, dest])
-            log.debug('job_opts: %s' % job_opts)
+        # Add --process commands to job opts
+        output_files = [os.path.join(args.oDir, stem(f)) + '.root' for f in input_files]
+        for in_file, out_file in zip(input_files, output_files):
+            job_args.extend(['--process', in_file, out_file])
 
-            # write job vars to file
-            log_name = os.path.splitext(os.path.basename(dag_filename))[0]
-            dag_file.write('VARS %s opts="%s" logDir="%s" logFile="%s"\n' % (
-                           job_name, ' '.join(job_opts), log_dir, log_name))
+        # Since we transfer across files on a one-by-one basis, we don't use
+        # input_files or output_files for the input or outpt ROOT files.
+        job = ht.Job(name='delphes%d' % ind, args=job_args)
+        delphes_jobset.add_job(job)
+        delphes_dag.add_job(job)
 
-        dag_file.write('NODE_STATUS_FILE %s 30\n' % status_filename)
+    return delphes_dag
 
 
-def check_create_dir(directory, info=False):
-    """Check to see if directory exists, if not make it.
-
-    Can optionally display message to user.
-    """
-    if not os.path.isdir(directory):
-        if os.path.isfile(directory):
-            raise RuntimeError("Cannot create directory %s, already "
-                               "exists as a file object" % directory)
-        os.makedirs(directory)
-        if info:
-            print "Making dir %s" % directory
+def stem(filename):
+    """Get rid of any .gz or .tar.gz"""
+    return '.'.join(os.path.basename(filename).split('.')[0:1])
 
 
-def generate_output_dir(input_dir, card):
-    """Generate an output directory based on the input directory and card name.
+def generate_output_dir(input_dir, card, filetype):
+    """Generate an output directory for Delphes ROOT files.
 
-    >>> generate_output_dir('/hdfs/users/rob/hepmc', 'delphes_card_cms.tcl')
-    /hdfs/users/rob/delphes/delphes_card_cms/
+    >>> generate_output_dir('/hdfs/users/rob/hepmc', 'delphes_card_cms.tcl', 'hepmc')
+    /hdfs/users/rob/delphes_card_cms_hepmc/
+
+    Parameters
+    ----------
+    input_dir : str
+        Name of directory with input files.
+    card : str
+        Name of card file.
+    filetype : str
+        Filetype of input (lhe, hepmc, etc)
+
+    Returns
+    -------
+    str
+        Output directory path
     """
     if input_dir.endswith('/'):
         input_dir = input_dir.rstrip('/')
-    return os.path.join(os.path.dirname(input_dir), 'delphes', os.path.splitext(card)[0])
+    return os.path.join(os.path.dirname(input_dir), os.path.splitext(os.path.basename(card))[0] + "_" + filetype)
 
 
 def generate_subdir(card):
     """Generate subdirectory name using the card name and date.
-    Can be used for output and log files, so consistent between both.
+
+    >>> generate_subdir('mycard.tcl')
+    mycard/13_Jan_16
     """
     return os.path.join(os.path.splitext(os.path.basename(card))[0], strftime("%d_%b_%y"))
 
 
-def grouper(iterable, n, fillvalue=None):
-    """
-    Iterate through iterable in groups of size n.
-    If < n values available, pad with fillvalue.
-
-    Taken from the itertools cookbook.
-    """
-    args = [iter(iterable)] * n
-    return izip_longest(fillvalue=fillvalue, *args)
-
 if __name__ == "__main__":
-    submit_delphes_jobs_htcondor()
+    sys.exit(submit_delphes_jobs_htcondor())

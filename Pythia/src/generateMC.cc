@@ -18,6 +18,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/filesystem.hpp>
 
 // Own headers
 #include "PythiaProgramOpts.h"
@@ -28,11 +29,14 @@ using std::endl;
 using boost::lexical_cast;
 using namespace Pythia8;
 
+namespace fs = boost::filesystem;
+
 // Forward declare methods
 std::vector<Particle*> getChildren(Event & event, Particle * p);
 std::vector<Particle*> getAllDescendants(Event & event, Particle * p, bool finalStateOnly);
 std::string getCurrentTime();
 int gzip_file(std::string filename);
+bool check_file_exists(std::string filename);
 
 /**
  * @brief Main function for generating MC events
@@ -46,8 +50,16 @@ int main(int argc, char *argv[]) {
   // SETUP PYTHIA
   //---------------------------------------------------------------------------
   Pythia pythia;
-  pythia.readFile("input_cards/common_pp.cmnd");
+
+  std::string common_card = "input_cards/common_pp.cmnd";
+  if (!check_file_exists(common_card))
+    throw std::runtime_error("Common card \"" + common_card + "\" does not exist");
+  pythia.readFile(common_card);
+
+  if (!check_file_exists(opts.cardName()))
+    throw std::runtime_error("Input card \"" + opts.cardName() + "\" does not exist");
   pythia.readFile(opts.cardName());
+
   pythia.readString("Beams:eCM = " + lexical_cast<std::string>(opts.energy() * 1000));
 
   pythia.readString("Main:numberOfEvents = " + lexical_cast<std::string>(opts.nEvents()));
@@ -66,7 +78,6 @@ int main(int argc, char *argv[]) {
   // Create an LHAup object that can access relevant information in pythia for writing to LHE
   LHAupFromPYTHIA8 myLHA(&pythia.process, &pythia.info);
   if (opts.writeToLHE()) {
-    // myLHA2.reset();
     cout << "Writing LHE to " << opts.filenameLHE() << endl;
     // Open a file on which LHEF events should be stored, and write header.
     myLHA.openLHEF(opts.filenameLHE());
@@ -168,7 +179,6 @@ int main(int argc, char *argv[]) {
       pythia.process.list();
     }
 
-
     //-------------------------------------------------------------------------
     // STORE IN HEPMC/LHE
     //-------------------------------------------------------------------------
@@ -188,7 +198,6 @@ int main(int argc, char *argv[]) {
       // With optional argument (verbose =) false the file is smaller.
       myLHA.eventLHEF();
     }
-
 
     //-------------------------------------------------------------------------
     // Analyse the event particles, fill histograms, etc.
@@ -334,6 +343,8 @@ int main(int argc, char *argv[]) {
       if (res != 0) return res;
     }
   }
+
+  return 0;
 }
 
 
@@ -426,4 +437,14 @@ int gzip_file(std::string filename) {
   }
   pclose(in);
   return 0;
+}
+
+/**
+ * @brief Check file exists
+ *
+ * @param filename File to check.
+ * @return bool, true if file exists, false otherwise.
+ */
+bool check_file_exists(std::string filename) {
+  return fs::exists(fs::path(filename));
 }

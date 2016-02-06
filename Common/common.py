@@ -41,10 +41,28 @@ def grouper(iterable, n, fillvalue=None):
     ----------
     iterable : TYPE
         Description
-    n : TYPE
-        Description
+    n : int
+        Size of group
     fillvalue : TYPE, optional
-        Description
+        Object to pad group with incase there are fewer than n members.
     """
     args = [iter(iterable)] * n
     return izip_longest(fillvalue=fillvalue, *args)
+
+
+def frange(start, stop, step=1.0):
+    """Generate an iterator to loop over a range of floats.
+
+    Parameters
+    ----------
+    start : float
+        Start value
+    stop : float
+        End value (inclusive)
+    step : float, optional
+        Interval size
+    """
+    i = start
+    while i <= stop:
+        yield i
+        i += step

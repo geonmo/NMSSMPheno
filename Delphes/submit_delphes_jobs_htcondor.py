@@ -105,7 +105,6 @@ def submit_delphes_jobs_htcondor(in_args=sys.argv[1:], delphes_dir=DELPHES_DIR, 
     if args.dry:
         log.warning('Dry run - not submitting jobs or copying files.')
         delphes_dag.write()
-        print delphes_dag.get_jobsets()[0].common_input_file_mirrors
     else:
         delphes_dag.submit()
     return 0

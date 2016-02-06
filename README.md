@@ -6,15 +6,17 @@ Basic overview:
 
 1) Make MC complete with showering using Pythia8 (for signal processes) or MG5_aMC@NLO (for SM processes).
 
-2) Run through Delphes for a detector simulation based around CMS (TODO)
+2) Run through Delphes for a detector simulation based around CMS (TODO for PBS)
 
-3) Analyse with MadAnlaysis (TODO)
+3) Analyse with MadAnlaysis (TODO for HTCondor/PBS)
 
 This system has been designed to run on various systems:
 - Soolin at Bristol (HTCondor batch system)
 - Iridis at Southampton (PBS batch system)
 
 ##Installation
+
+- Get [`htcondenser`](https://github.com/raggleton/htcondenser). Run `setup.sh`
 
 - Clone this repository:
 

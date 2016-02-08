@@ -206,7 +206,7 @@ def create_dag(dag_filename, condor_filename, status_filename, zip_filename, log
                            out_dir=log_dir, err_dir=log_dir, log_dir=log_dir,
                            memory="100MB", disk="2GB", share_exe_setup=True,
                            common_input_files=[mg5_args.card, zip_filename],
-                           hdfs_store=args.oDir)
+                           hdfs_store=os.path.join(args.oDir, 'materials'))
 
     for job_ind in xrange(args.jobIdRange[0], args.jobIdRange[1] + 1):
         mg5_job = generate_mg5_job(args, mg5_args, zip_filename, job_ind)
@@ -267,7 +267,7 @@ def generate_mg5_job(args, mg5_args, zip_filename, job_index):
                     os.path.join(output_dir, 'summary_' + name_stem + '.txt')]
 
     mg5_job = ht.Job(name='%d_%s' % (job_index, args.channel), args=job_opts,
-                     output_files=output_files, hdfs_mirror_dir=args.oDir)
+                     output_files=output_files)
     return mg5_job
 
 

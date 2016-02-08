@@ -46,7 +46,7 @@ def submit_delphes_jobs_htcondor(in_args=sys.argv[1:], delphes_dir=DELPHES_DIR, 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--card',
                         required=True,
-                        help='Delphes card file. ASSUMES IT IS IN input_cards/')
+                        help='Delphes card file.')
     parser.add_argument('--iDir',
                         required=True,
                         help='Input directory of hepmc/lhe files to process')
@@ -209,7 +209,7 @@ def create_dag(dag_filename, status_filename, condor_filename, log_dir, delphes_
                                share_exe_setup=True,
                                common_input_files=[delphes_zip, args.card],
                                transfer_hdfs_input=True,
-                               hdfs_store=args.oDir)
+                               hdfs_store=os.path.join(args.oDir, 'materials'))
 
     exe_dict = {'hepmc': './DelphesHepMC', 'lhe': './DelphesLHEF'}
     delphes_exe = exe_dict[args.type]

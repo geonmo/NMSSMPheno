@@ -15,6 +15,6 @@ launch
   #set run_card jetradius 1
   #set shower_card Qcut 20
   #set shower_card njmax 2
-  set shower_card extralibs dl
+  set shower_card extralibs dl z
   set shower_card extrapaths ../lib /users/$LOGNAME/HepMC/install/lib
   set shower_card includepaths /users/$LOGNAME/HepMC/install/include

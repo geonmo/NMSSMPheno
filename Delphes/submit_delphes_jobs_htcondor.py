@@ -184,15 +184,20 @@ def create_dag(dag_filename, status_filename, condor_filename, log_dir, delphes_
 
     """
     # Collate list of input files
-    def accept_file(filename):
+    def accept_file(filename, fmt):
         fl = os.path.basename(filename).lower()
-        extensions = ['.lhe', '.hepmc', '.gz', '.tar.gz', '.tgz']
-        return any([os.path.isfile(filename) and fl.endswith(ext) for ext in extensions])
+        comp_ext = ['.gz', '.tar.gz', '.tgz']
+        extensions = ['.' + fmt.lower() + y for y in comp_ext]
+        return (os.path.isfile(filename) and
+                any([fl.endswith(ext) for ext in extensions]) and
+                not fl.startswith("runmaterial") and
+                not fl.startswith('mg5'))
 
     log.debug(os.listdir(args.iDir))
     abs_idir = os.path.abspath(args.iDir)
     input_files = [os.path.join(abs_idir, f) for f in os.listdir(abs_idir)
-                   if accept_file(os.path.join(abs_idir, f))]
+                   if accept_file(os.path.join(abs_idir, f), args.type)]
+    log.debug(input_files)
     if not input_files:
         raise OSError('No acceptable input file in %s' % args.iDir)
 

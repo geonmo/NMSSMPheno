@@ -214,9 +214,6 @@ def create_dag(dag_filename, status_filename, condor_filename, log_dir, mass, ar
         and args to pass to the executable.
 
     """
-
-    num_events = get_number_events(args)
-
     # set mass in args passed to program
     if '--mass' in args.args:
         set_option_in_args(args.args, '--mass', mass)
@@ -236,7 +233,7 @@ def create_dag(dag_filename, status_filename, condor_filename, log_dir, mass, ar
     pythia_dag = ht.DAGMan(filename=dag_filename, status_file=status_filename)
 
     for job_ind in xrange(args.jobIdRange[0], args.jobIdRange[1] + 1):
-        pythia_job = generate_pythia_job(args, job_ind, mass, num_events)
+        pythia_job = generate_pythia_job(args, job_ind, mass)
         pythia_jobset.add_job(pythia_job)
         pythia_dag.add_job(pythia_job)
 
@@ -245,18 +242,16 @@ def create_dag(dag_filename, status_filename, condor_filename, log_dir, mass, ar
 
 def generate_subdir(channel, energy=13, mass=0):
     """Generate a subdirectory name.
-    Can be used for output and log files, so consistent between both.
 
     >>> generate_subdir('ggh_4tau', energy=8, mass=4)
     8TeV_ggh_4tau_m4/05_Oct_15
     """
     mass = str(mass)
     return os.path.join('%s_mass%s_%dTeV' % (channel, mass, energy), strftime("%d_%b_%y"))
-    # return os.path.join('%dTeV' % energy, channel, 'mass%s' % mass, strftime("%d_%b_%y"))
 
 
 def generate_dir_soolin(channel, energy=13, mass=0):
-    """Generate a directory name on /hdfs using userId, channel, and date.
+    """Generate a directory name on /hdfs.
 
     >>> generate_dir_soolin('ggh_4tau', 13, 8)
     /hdfs/user/<username>/NMSSMPheno/Pythia8/13TeV_ggh_4tau_m8/<date>
@@ -359,11 +354,11 @@ def generate_pythia_job(args, job_index, mass, num_events):
         Description
     mass : TYPE
         Description
-    num_events : TYPE
-        Description
 
     Returns
     -------
+    htcondenser.Job
+
     """
     exe_args = args.args[:]
     exe_args.extend(['--seed', job_index])  # RNG seed using job index
@@ -384,6 +379,7 @@ def generate_pythia_job(args, job_index, mass, num_events):
             # Auto generate output filename if necessary
             # Bit hacky as have to manually sync with PythiaProgramOpts
             if not get_option_in_args(args.args, flag):
+                num_events = get_number_events(args)
                 out_name = generate_filename(args.channel, mass, args.energy, num_events, fmt)
                 set_option_in_args(exe_args, flag, out_name)
 
@@ -404,6 +400,7 @@ def generate_pythia_job(args, job_index, mass, num_events):
                         args=exe_args, output_files=out_files,
                         hdfs_mirror_dir=args.oDir)
     return pythia_job
+
 
 if __name__ == "__main__":
     sys.exit(submit_mc_jobs_htcondor())

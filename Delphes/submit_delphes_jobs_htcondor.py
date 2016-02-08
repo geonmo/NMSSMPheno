@@ -87,7 +87,7 @@ def submit_delphes_jobs_htcondor(in_args=sys.argv[1:], delphes_dir=DELPHES_DIR, 
     if not args.oDir:
         args.oDir = generate_output_dir(args.iDir, os.path.basename(args.card), args.type)
 
-    # Zip up Delphes installation and move it to hdfs
+    # Zip up Delphes installation
     delphes_zip = 'delphes.tgz'
     create_delphes_zip(delphes_dir, delphes_zip)
 
@@ -262,7 +262,8 @@ def generate_output_dir(input_dir, card, filetype):
     """
     if input_dir.endswith('/'):
         input_dir = input_dir.rstrip('/')
-    return os.path.join(os.path.dirname(input_dir), os.path.splitext(os.path.basename(card))[0] + "_" + filetype)
+    subdir = os.path.splitext(os.path.basename(card))[0] + "_" + filetype
+    return os.path.join(os.path.dirname(input_dir), subdir)
 
 
 def generate_subdir(card):

@@ -135,6 +135,7 @@ def submit_mc_jobs_htcondor(in_args=sys.argv[1:], log_dir=LOG_DIR):
         # Auto generate output directory if necessary
         if args.oDir == "":
             args.oDir = generate_dir_soolin(args.channel, args.energy, mass)
+            log.info('Auto setting output dir to %s', args.oDir)
 
         # Setup log directory
         log_dir = '%s/%s/logs' % (log_dir, generate_subdir(args.channel, args.energy, mass))
@@ -142,7 +143,6 @@ def submit_mc_jobs_htcondor(in_args=sys.argv[1:], log_dir=LOG_DIR):
         # File stem common for all dag and status files
         file_stem = '%s/py8_%s' % (generate_subdir(args.channel, args.energy, mass),
                                    strftime("%H%M%S"))
-        common.check_create_dir(os.path.dirname(file_stem))
 
         # Make DAGMan
         status_name = file_stem + '.status'

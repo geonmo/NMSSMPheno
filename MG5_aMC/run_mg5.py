@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 """
 Script to run MG5_aMC locally. Creates new input card from user's options,
 to ensure that Pythia8 & HepMC linked correctly, and other options.
@@ -10,7 +9,8 @@ import sys
 import os
 import re
 import logging
-from subprocess import call
+from subprocess import check_call
+import shutil
 
 
 logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 class MG5ArgParser(argparse.ArgumentParser):
     """
     Class to handle parsing of options. This allows it to be used in other
-    scripts (e.g. for HTCOndr/PBS batch scripts)
+    scripts (e.g. for HTCondor/PBS batch scripts)
     """
 
     def __init__(self, *args, **kwargs):
@@ -54,6 +54,8 @@ class MG5ArgParser(argparse.ArgumentParser):
         self.add_argument('--new',
                           help='Filename for new card. '
                           'If not specified, defaults to <card>_new.txt')
+        self.add_argument('--newstem',
+                          help='Stem for new output filenames.')
         self.add_argument("-v",
                           action='store_true',
                           help="Display debug messages.")
@@ -86,8 +88,9 @@ def run_mg5(in_args=sys.argv[1:]):
     log.debug(fields)
 
     # make a new card for MG5_aMC
-    new_card = args.card.replace(".txt", "_new.txt")
-    args.__dict__['new_card'] = new_card
+    new_card = os.path.splitext(args.card)[0] + '_new' + os.path.splitext(args.card)[1]
+    if args.new:
+        new_card = args.new
     make_card(args.card, new_card, fields)
 
     # run MG5_aMC
@@ -95,9 +98,25 @@ def run_mg5(in_args=sys.argv[1:]):
         log.info('Running MG5_aMC with card %s' % new_card)
         mg5_cmds = [os.path.abspath(args.exe), new_card]
         log.debug(mg5_cmds)
-        call(mg5_cmds)
+        check_call(mg5_cmds)
 
-    return args
+        if args.newstem:
+            # rename output files to avoid generic names - can MG do this already?
+            channel = get_value_from_card(new_card, 'output')
+            print os.listdir(channel)
+            print os.listdir(channel + '/Events')
+            print os.listdir(channel + '/Events/run_01')
+
+            output_dir = os.path.join(channel, 'Events', 'run_01')
+            shutil.move(os.path.join(output_dir, 'events.lhe.gz'),
+                        os.path.join(output_dir, args.newstem + '.lhe.gz'))
+            shutil.move(os.path.join(output_dir, 'events_PYTHIA8_0.hepmc.gz'),
+                        os.path.join(output_dir, args.newstem + '.hepmc.gz'))
+            shutil.move(os.path.join(output_dir, 'RunMaterial.tar.gz'),
+                        os.path.join(output_dir, 'RunMaterial_' + args.newstem + '.tar.gz'))
+            shutil.move(os.path.join(output_dir, 'summary.txt'),
+                        os.path.join(output_dir, 'summary_' + args.newstem + '.txt'))
+    return 0
 
 
 def make_card(in_card, out_card, fields):
@@ -106,11 +125,13 @@ def make_card(in_card, out_card, fields):
     The attribute replacement is made if a line contains a variable name as
     a word surrounded by spaces.
 
-    in_card: str.
+    Parameters
+    ----------
+    in_card : str
         Name of card to use as template.
-    out_card: str
+    out_card : str
         Name of card to produce.
-    fields: dict
+    fields : dict
         Dict of thing to replace in the template card. Dict should be of the
         form, {<var_name>: <value>}. var_name must be a str.
         <var_name> is the name of a MG5 variable.
@@ -147,5 +168,32 @@ def make_card(in_card, out_card, fields):
         out_file.write(''.join(card_template))
 
 
+def get_value_from_card(card, field):
+    """Get value of field from card.
+
+    Parameters
+    ----------
+    card : str
+        Filename
+    field : str
+        Field name
+
+    Returns
+    -------
+    str
+        Value for the specified field.
+
+    Raises
+    ------
+    KeyError
+        If no field exists with the specified name.
+    """
+    with open(card) as f:
+        for line in f:
+            if field in line.strip():
+                return line.strip().split()[-1]
+        raise KeyError('Cannot find field with name %s' % field)
+
+
 if __name__ == "__main__":
-    run_mg5()
+    sys.exit(run_mg5())

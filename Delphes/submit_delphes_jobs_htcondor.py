@@ -38,6 +38,11 @@ def submit_delphes_jobs_htcondor(in_args=sys.argv[1:], delphes_dir=DELPHES_DIR, 
     log_dir : str, optional
         Directory for STDOUT/STDERR/HTCondor logs.
 
+    Returns
+    -------
+    int
+        0 if everything ran ok.
+
     Raises
     ------
     OSError
@@ -75,10 +80,8 @@ def submit_delphes_jobs_htcondor(in_args=sys.argv[1:], delphes_dir=DELPHES_DIR, 
     log.debug('program args: %s' % args)
 
     # Avoid issues with os.path.dirname as we want parent directory, not itself
-    if args.iDir.endswith('/'):
-        args.iDir = args.iDir.rstrip('/')
-    if delphes_dir.endswith('/'):
-        delphes_dir = delphes_dir.rstrip('/')
+    args.iDir = os.path.realpath(args.iDir)
+    delphes_dir = os.path.realpath(delphes_dir)
 
     # Do some checks
     check_args(args, delphes_dir)
@@ -265,8 +268,7 @@ def generate_output_dir(input_dir, card, filetype):
     str
         Output directory path
     """
-    if input_dir.endswith('/'):
-        input_dir = input_dir.rstrip('/')
+    input_dir = os.path.realpath(input_dir)
     subdir = os.path.splitext(os.path.basename(card))[0] + "_" + filetype
     return os.path.join(os.path.dirname(input_dir), subdir)
 

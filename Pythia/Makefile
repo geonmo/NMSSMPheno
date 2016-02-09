@@ -33,7 +33,7 @@ ifneq ($(findstring cyan, $(shell hostname)), )
 # It took a *LOT* of work to find all the compatible releases/compiler...
 # Change at your own peril!
 else ifneq ($(findstring soolin, $(shell hostname)), )
-	PYTHIA8DIR = $(HOME)/Pythia8/pythia8212
+	PYTHIA8DIR = $(HOME)/Pythia8/pythia8215
 	FASTJETDIR = $(HOME)/fastjet-install
 	# Don't call it HEPMCDIR beacuse it defaults to /build/degano not cvmsfs within cmssw for some stupid reason
 	HEPMCDIR = $(HOME)/HepMC/install

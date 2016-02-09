@@ -57,7 +57,7 @@ def run_ma(in_args=sys.argv[1:]):
     sample_dict = json_to_dict(args.samples)
     log.debug('Sample dictionary: %s', sample_dict)
 
-    filelists = generate_filelists(sample_dict, os.getcwd())
+    filelists = generate_filelists(sample_dict, os.path.dirname(args.samples))
 
     # Run MadAnalysis
     if not args.dry:
@@ -198,7 +198,7 @@ def create_filelist(channel, chan_dict, out_dir):
                 break
             flist.write('%s\n' % f)
 
-    return filename
+    return os.path.realpath(filename)
 
 
 if __name__ == "__main__":

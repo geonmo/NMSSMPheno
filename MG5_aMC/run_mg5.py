@@ -79,8 +79,8 @@ def run_mg5(in_args=sys.argv[1:]):
 
     # Use script args to create dict of fields to replace in card
     if 'hepmc' in args:
-        args.__dict__['extrapaths'] = "../lib %s" % os.path.join(os.path.abspath(args.hepmc), 'lib')
-        args.__dict__['includepaths'] = os.path.join(os.path.abspath(args.hepmc), 'include')
+        args.__dict__['extrapaths'] = "../lib %s" % os.path.join(os.path.realpath(args.hepmc), 'lib')
+        args.__dict__['includepaths'] = os.path.join(os.path.realpath(args.hepmc), 'include')
 
     mg_vars = ['nevents', 'iseed', 'pythia8_path', 'extrapaths', 'includepaths']
     fields = {k: args.__dict__[k] for k in mg_vars if args.__dict__[k]}
@@ -96,7 +96,7 @@ def run_mg5(in_args=sys.argv[1:]):
     # run MG5_aMC
     if not args.dry:
         log.info('Running MG5_aMC with card %s' % new_card)
-        mg5_cmds = [os.path.abspath(args.exe), new_card]
+        mg5_cmds = [os.path.realpath(args.exe), new_card]
         log.debug(mg5_cmds)
         check_call(mg5_cmds)
 
@@ -164,6 +164,7 @@ def make_card(in_card, out_card, fields):
             card_template[i] = line.replace(old_values, str(value))
 
     log.info('Writing new card to %s' % out_card)
+    log.debug(''.join(card_template))
     with open(out_card, 'w') as out_file:
         out_file.write(''.join(card_template))
 

@@ -42,7 +42,7 @@ def main(in_args=sys.argv[1:]):
     # back to submission node
     # -------------------------------------------------------------------------
     os.mkdir('scratch')
-    os.environ['SCRATCH'] = os.path.abspath('scratch')
+    os.environ['SCRATCH'] = os.path.realpath('scratch')
     os.chdir('scratch')
 
     # Copy files to worker node area from /users, /hdfs, /storage, etc.
@@ -81,7 +81,7 @@ def main(in_args=sys.argv[1:]):
     mg5_args.extend(['--exe', os.path.join(mg5_dir, 'bin', 'mg5_aMC')])
     print mg5_args
 
-    sys.path.insert(0, os.path.abspath('.'))
+    sys.path.insert(0, os.path.realpath('.'))
     import run_mg5
     run_args = run_mg5.run_mg5(mg5_args)
     print run_args

@@ -197,7 +197,7 @@ def create_dag(dag_filename, status_filename, condor_filename, log_dir, delphes_
                 not fl.startswith('mg5'))
 
     log.debug(os.listdir(args.iDir))
-    abs_idir = os.path.abspath(args.iDir)
+    abs_idir = os.path.realpath(args.iDir)
     input_files = [os.path.join(abs_idir, f) for f in os.listdir(abs_idir)
                    if accept_file(os.path.join(abs_idir, f), args.type)]
     log.debug(input_files)

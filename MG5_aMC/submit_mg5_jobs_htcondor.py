@@ -245,7 +245,7 @@ def generate_mg5_job(args, mg5_args, zip_filename, job_index):
             if k == 'card':
                 continue
             if k in ['hepmc', 'pythia8_path']:
-                v = os.path.abspath(v)
+                v = os.path.realpath(v)
             job_opts.extend(['--' + str(k), str(v)])
 
     # make some replacements due to different destination variable name

@@ -48,32 +48,64 @@ def run_ma(in_args=sys.argv[1:]):
     args = parser.parse_args(in_args)
     if args.v:
         log.setLevel(logging.DEBUG)
-        log.debug(args)
+    log.debug(args)
 
-    # Do some checks
-    # ------------------------------------------------------------------------
-    if not os.path.isfile(args.samples):
-        raise OSError('JSON samples file does not exist')
-    if not os.path.isfile(os.path.realpath(os.path.realpath(args.exe))):
-        raise OSError('MadAnalysis exe does not exist')
-    if not os.path.basename(args.exe).startswith("MadAnalysis5Job"):
-        raise RuntimeError('You need the MadAnalysis5Job exe')
+    check_args(args)
 
     # Interpret samples JSON
-    # ------------------------------------------------------------------------
     # create a filelist for each set of samples.
-    with open(args.samples) as jfile:
-        sample_dict = json.load(jfile)
+    sample_dict = json_to_dict(args.samples)
     log.debug('Sample dictionary: %s', sample_dict)
 
     filelists = generate_filelists(sample_dict, os.getcwd())
 
     # Run MadAnalysis
-    # ------------------------------------------------------------------------
     if not args.dry:
         setup_run_ma(args, filelists)
 
     return 0
+
+
+def check_args(args):
+    """Check sanity of user's args.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        User's args
+
+    Raises
+    ------
+    OSError
+        If JSON samples file doesn't exist or isn't a file.
+        If MadAnalysis exe does not exist.
+        If user didn't specify the MadAnalysis5job exe.
+    """
+    if not os.path.isfile(args.samples):
+        raise OSError('JSON samples file does not exist')
+    if not os.path.isfile(os.path.realpath(os.path.realpath(args.exe))):
+        raise OSError('MadAnalysis exe does not exist')
+    exe_name = 'MadAnalysis5job'
+    if not os.path.basename(args.exe).startswith(exe_name):
+        raise OSError('You need the %s exe' % exe_name)
+
+
+def json_to_dict(json_file):
+    """Create dictionary from JSON file.
+
+    Parameters
+    ----------
+    json_file : str
+        Filename for JSON file describing samples.
+
+    Returns
+    -------
+    name : dict
+        Dict corresponding to JSON file.
+    """
+    with open(json_file) as jfile:
+        json_dict = json.load(jfile)
+    return json_dict
 
 
 def setup_run_ma(args, filelists):

@@ -82,6 +82,9 @@ def run_mg5(in_args=sys.argv[1:]):
         args.__dict__['extrapaths'] = "../lib %s" % os.path.join(os.path.realpath(args.hepmc), 'lib')
         args.__dict__['includepaths'] = os.path.join(os.path.realpath(args.hepmc), 'include')
 
+    if 'pythia8_path' in args:
+        args.__dict__['pythia8_path'] = os.path.realpath(args.pythia8_path)
+
     mg_vars = ['nevents', 'iseed', 'pythia8_path', 'extrapaths', 'includepaths']
     fields = {k: args.__dict__[k] for k in mg_vars if args.__dict__[k]}
 
